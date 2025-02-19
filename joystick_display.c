@@ -101,8 +101,11 @@ int main()
         //ssd1306_rect(&ssd, (x_normal)*64-4, (y_normal)*128-4, 8, 8, cor, cor); // Desenha um retângulo
         ssd1306_send_data(&ssd); // Atualiza o display
 
-        pwm_set_gpio_level(LED_B, y_normal*4095);
-        pwm_set_gpio_level(LED_R, x_normal*4095);
+        if(x_normal<0.1) x_normal=0;
+        if(y_normal<0.1) y_normal=0;
+
+        pwm_set_gpio_level(LED_B, x_normal*4095);
+        pwm_set_gpio_level(LED_R, y_normal*4095);
 
         sleep_ms(100);
     }
