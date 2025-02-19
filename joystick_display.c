@@ -39,6 +39,7 @@ uint last_time_PB = 0;
 void inicializar();
 void gpio_irq_handler(uint gpio, uint32_t events);
 void inicializar_pmw(uint pin);
+double normal(uint valor_adc);
 
 int main()
 {    
@@ -59,6 +60,9 @@ int main()
     uint adc_value_x;
     uint adc_value_y;
 
+    uint x;
+    uint y;
+
     double x_normal = 0;
     double y_normal = 0;
 
@@ -70,10 +74,10 @@ int main()
     {
         adc_select_input(0); // Seleciona o ADC para eixo X. O pino 26 como entrada analógica
         adc_value_x = adc_read();
-        x_normal = (adc_value_x-xmin)/(xmax-xmin);
+        x_normal = normal(adc_value_x);
         adc_select_input(1); // Seleciona o ADC para eixo Y. O pino 27 como entrada analógica
         adc_value_y = adc_read();
-        y_normal = (adc_value_y-ymin)/(ymax-ymin);
+        y_normal = normal(adc_value_y);
         //printf("X: %d Y: %d | Xn: %f Yn: %f\n", adc_value_x,adc_value_y,x_normal,y_normal);
         sprintf(str_x, "%d", adc_value_x);  // Converte o inteiro em string
         sprintf(str_y, "%d", adc_value_y);  // Converte o inteiro em string
@@ -82,19 +86,15 @@ int main()
         // Atualiza o conteúdo do display com animações
         ssd1306_fill(&ssd, !cor); // Limpa o display
         ssd1306_rect(&ssd, 3, 3, 122, 60, cor, !cor); // Desenha um retângulo
-        ssd1306_line(&ssd, 3, 25, 123, 25, cor); // Desenha uma linha
-        ssd1306_line(&ssd, 3, 37, 123, 37, cor); // Desenha uma linha   
-        ssd1306_draw_string(&ssd, "CEPEDI   TIC37", 8, 6); // Desenha uma string
-        ssd1306_draw_string(&ssd, "EMBARCATECH", 20, 16); // Desenha uma string
-        ssd1306_draw_string(&ssd, "ADC   JOYSTICK", 10, 28); // Desenha uma string 
-        ssd1306_draw_string(&ssd, "X    Y    PB", 20, 41); // Desenha uma string    
-        ssd1306_line(&ssd, 44, 37, 44, 60, cor); // Desenha uma linha vertical         
-        ssd1306_draw_string(&ssd, str_x, 8, 52); // Desenha uma string     
-        ssd1306_line(&ssd, 84, 37, 84, 60, cor); // Desenha uma linha vertical      
-        ssd1306_draw_string(&ssd, str_y, 49, 52); // Desenha uma string   
-        ssd1306_rect(&ssd, 52, 90, 8, 8, cor, !gpio_get(JOYSTICK_PB)); // Desenha um retângulo  
-        ssd1306_rect(&ssd, 52, 102, 8, 8, cor, !gpio_get(Botao_A)); // Desenha um retângulo    
-        ssd1306_rect(&ssd, 52, 114, 8, 8, cor, !cor); // Desenha um retângulo       
+        ssd1306_rect(&ssd, 0, 0, 128, 64, !green_status, !cor); // Desenha um retângulo
+        
+        x=adc_value_x/4095;
+        y=adc_value_y/4095;
+
+        printf("X: %d Y: %d | Xn: %f Yn: %f\n", (x)*128-4,(y)*64-4,(x_normal)*128-4,(y_normal)*64-4);
+
+        ssd1306_rect(&ssd, (x)*64-4, (y)*128-4, 8, 8, cor, cor); // Desenha um retângulo
+        //ssd1306_rect(&ssd, (x_normal)*64-4, (y_normal)*128-4, 8, 8, cor, cor); // Desenha um retângulo
         ssd1306_send_data(&ssd); // Atualiza o display
 
         pwm_set_gpio_level(LED_B, adc_value_y);
@@ -102,6 +102,8 @@ int main()
 
         sleep_ms(100);
     }
+
+    return 0;
 }
 
 void gpio_irq_handler(uint gpio, uint32_t events){// Para ser utilizado o modo BOOTSEL com botão B
@@ -182,4 +184,15 @@ void inicializar_pmw(uint pin){
     pwm_set_wrap(slice, wrap); //definir o valor de wrap
     pwm_set_gpio_level(pin, nivel); //definir o ciclo de trabalho (duty cycle) do pwm
     pwm_set_enabled(slice, true); //habilita o pwm no slice correspondente
+}
+
+double normal(uint valor_adc){
+    double valor = 0;
+    if(valor_adc>2048){
+        valor = (valor_adc - 2048.0)/2048.0;
+    }else{
+        valor = (2048.0 - valor_adc)/2048.0;
+    }
+
+    return valor;
 }
