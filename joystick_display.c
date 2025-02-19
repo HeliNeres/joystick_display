@@ -88,17 +88,21 @@ int main()
         ssd1306_rect(&ssd, 3, 3, 122, 60, cor, !cor); // Desenha um retângulo
         ssd1306_rect(&ssd, 0, 0, 128, 64, !green_status, !cor); // Desenha um retângulo
         
-        x=adc_value_x/4095;
-        y=adc_value_y/4095;
+        x=(64 - adc_value_x*64/4095) - 4;
+        y=adc_value_y*128/4095 - 4;
 
-        printf("X: %d Y: %d | Xn: %f Yn: %f\n", (x)*128-4,(y)*64-4,(x_normal)*128-4,(y_normal)*64-4);
+        if(x>64) x=0;
+        if(y>128) y=0;
 
-        ssd1306_rect(&ssd, (x)*64-4, (y)*128-4, 8, 8, cor, cor); // Desenha um retângulo
+        //printf("X: %d Y: %d | Xn: %f Yn: %f\n", (x)*128-4,(y)*64-4,(x_normal)*128-4,(y_normal)*64-4);
+        printf("X: %u Y: %u | Xn: %f Yn: %f\n", (x),(y),(x_normal)*128-4,(y_normal)*64-4);
+
+        ssd1306_rect(&ssd, x, y, 8, 8, cor, cor); // Desenha um retângulo
         //ssd1306_rect(&ssd, (x_normal)*64-4, (y_normal)*128-4, 8, 8, cor, cor); // Desenha um retângulo
         ssd1306_send_data(&ssd); // Atualiza o display
 
-        pwm_set_gpio_level(LED_B, adc_value_y);
-        pwm_set_gpio_level(LED_R, adc_value_x);
+        pwm_set_gpio_level(LED_B, y_normal*4095);
+        pwm_set_gpio_level(LED_R, x_normal*4095);
 
         sleep_ms(100);
     }
