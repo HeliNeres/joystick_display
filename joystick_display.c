@@ -5,8 +5,8 @@
 #include "hardware/i2c.h"
 #include "lib/ssd1306.h"
 #include "lib/font.h"
-//Trecho para modo BOOTSEL com botão B
 #include "pico/bootrom.h"
+#include "hardware/pwm.h" //biblioteca para controlar o hardware de PWM
 
 #define I2C_PORT i2c1
 #define I2C_SDA 14
@@ -22,14 +22,14 @@ const uint LED_G = 11;
 const uint LED_B = 12;
 const uint LED_R = 13;
 
-uint8_t xmax = 4090;
-uint8_t xmin = 22;
+const uint xmax = 4090;
+const uint xmin = 22;
 
-uint8_t ymax = 4087;
-uint8_t ymin = 22;
+const uint ymax = 4087;
+const uint ymin = 22;
 
-uint8_t ypixels = 128;
-uint8_t xpixels = 64;
+const uint ypixels = 128;
+const uint xpixels = 64;
 
 void inicializar();
 void gpio_irq_handler(uint gpio, uint32_t events);
@@ -38,9 +38,9 @@ void inicializar_pmw(uint pin);
 int main()
 {    
     inicializar();
-    void inicializar_pmw(LED_G);
-    void inicializar_pmw(LED_B);
-    void inicializar_pmw(LED_R);
+    inicializar_pmw(LED_G);
+    inicializar_pmw(LED_B);
+    inicializar_pmw(LED_R);
 
     ssd1306_t ssd; // Inicializa a estrutura do display
   
@@ -52,8 +52,12 @@ int main()
     ssd1306_fill(&ssd, false);
     ssd1306_send_data(&ssd);
   
-    double adc_value_x;
-    double adc_value_y;  
+    uint adc_value_x;
+    uint adc_value_y;
+
+    double x_normal = 0;
+    double y_normal = 0;
+
     char str_x[5];  // Buffer para armazenar a string
     char str_y[5];  // Buffer para armazenar a string  
     
@@ -61,11 +65,14 @@ int main()
     while (true)
     {
         adc_select_input(0); // Seleciona o ADC para eixo X. O pino 26 como entrada analógica
-        adc_value_x = (adc_read()-xmin)/(xmax-xmin);
+        adc_value_x = adc_read();
+        x_normal = (adc_value_x-xmin)/(xmax-xmin);
         adc_select_input(1); // Seleciona o ADC para eixo Y. O pino 27 como entrada analógica
-        adc_value_y = (adc_read()-ymin)/(ymax-ymin);
-        sprintf(str_x, "%f", adc_value_x);  // Converte o inteiro em string
-        sprintf(str_y, "%f", adc_value_y);  // Converte o inteiro em string
+        adc_value_y = adc_read();
+        y_normal = (adc_value_y-ymin)/(ymax-ymin);
+        printf("X: %d Y: %d | Xn: %f Yn: %f\n", adc_value_x,adc_value_y,x_normal,y_normal);
+        sprintf(str_x, "%d", adc_value_x);  // Converte o inteiro em string
+        sprintf(str_y, "%d", adc_value_y);  // Converte o inteiro em string
         
         //cor = !cor;
         // Atualiza o conteúdo do display com animações
@@ -86,8 +93,8 @@ int main()
         ssd1306_rect(&ssd, 52, 114, 8, 8, cor, !cor); // Desenha um retângulo       
         ssd1306_send_data(&ssd); // Atualiza o display
 
-        pwm_set_gpio_level(LED_B, adc_value_y*ypixels);
-        pwm_set_gpio_level(LED_R, adc_value_x*xpixels);
+        pwm_set_gpio_level(LED_B, adc_value_y);
+        pwm_set_gpio_level(LED_R, adc_value_x);
 
         sleep_ms(100);
     }
@@ -130,7 +137,7 @@ void inicializar(){
 void inicializar_pmw(uint pin){
     const float divisor = 125.0;
     uint16_t wrap = 4095;
-    uint nivel = 2048;
+    uint nivel = 0;
 
     gpio_set_function(pin, GPIO_FUNC_PWM); //habilitar o pino GPIO como PWM
 
