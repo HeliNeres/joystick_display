@@ -16,20 +16,25 @@
 #define JOYSTICK_Y_PIN 27  // GPIO para eixo Y
 #define JOYSTICK_PB 22 // GPIO para botão do Joystick
 #define Botao_A 5 // GPIO para botão A
-#define botaoB 6
+#define Botao_B 6
 
 const uint LED_G = 11;
 const uint LED_B = 12;
 const uint LED_R = 13;
 
-const uint xmax = 4090;
-const uint xmin = 22;
+const float xmax = 4090.0;
+const float xmin = 22.0;
 
-const uint ymax = 4087;
-const uint ymin = 22;
+const float ymax = 4087.0;
+const float ymin = 22.0;
 
-const uint ypixels = 128;
-const uint xpixels = 64;
+const float ypixels = 128.0;
+const float xpixels = 64.0;
+
+bool pwm_status = true;
+bool green_status = false;
+uint last_time_A = 0;
+uint last_time_PB = 0;
 
 void inicializar();
 void gpio_irq_handler(uint gpio, uint32_t events);
@@ -38,7 +43,6 @@ void inicializar_pmw(uint pin);
 int main()
 {    
     inicializar();
-    inicializar_pmw(LED_G);
     inicializar_pmw(LED_B);
     inicializar_pmw(LED_R);
 
@@ -70,7 +74,7 @@ int main()
         adc_select_input(1); // Seleciona o ADC para eixo Y. O pino 27 como entrada analógica
         adc_value_y = adc_read();
         y_normal = (adc_value_y-ymin)/(ymax-ymin);
-        printf("X: %d Y: %d | Xn: %f Yn: %f\n", adc_value_x,adc_value_y,x_normal,y_normal);
+        //printf("X: %d Y: %d | Xn: %f Yn: %f\n", adc_value_x,adc_value_y,x_normal,y_normal);
         sprintf(str_x, "%d", adc_value_x);  // Converte o inteiro em string
         sprintf(str_y, "%d", adc_value_y);  // Converte o inteiro em string
         
@@ -101,24 +105,55 @@ int main()
 }
 
 void gpio_irq_handler(uint gpio, uint32_t events){// Para ser utilizado o modo BOOTSEL com botão B
-    reset_usb_boot(0, 0);
+    if(gpio==Botao_A){
+        if(absolute_time_diff_us(last_time_A,get_absolute_time()) > 300000){ //debouncing de 200ms
+            pwm_status = !pwm_status;
+
+            pwm_set_gpio_level(LED_B, 0);
+            pwm_set_gpio_level(LED_R, 0);
+            
+            uint slice = pwm_gpio_to_slice_num(LED_B);
+            pwm_set_enabled(slice, pwm_status);
+            slice = pwm_gpio_to_slice_num(LED_R);
+            pwm_set_enabled(slice, pwm_status);
+
+            last_time_A = get_absolute_time();
+        }
+    }else if(gpio==JOYSTICK_PB){
+        if(absolute_time_diff_us(last_time_PB,get_absolute_time()) > 200000){ //debouncing de 200ms
+            green_status = !green_status;
+
+            gpio_put(LED_G,green_status);
+
+            last_time_PB = get_absolute_time();
+        }
+    }else{
+        reset_usb_boot(0, 0);
+    }
 }
 
 void inicializar(){
     stdio_init_all(); //inicializa o sistema padrão de I/O
 
-    gpio_init(botaoB);
-    gpio_set_dir(botaoB, GPIO_IN);
-    gpio_pull_up(botaoB);
-    gpio_set_irq_enabled_with_callback(botaoB, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
+    // inicializar led verde
+    gpio_init(LED_G);
+    gpio_set_dir(LED_G, GPIO_OUT);
+    gpio_put(LED_G,0);
+
+    gpio_init(Botao_B);
+    gpio_set_dir(Botao_B, GPIO_IN);
+    gpio_pull_up(Botao_B);
+    gpio_set_irq_enabled_with_callback(Botao_B, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
 
     gpio_init(JOYSTICK_PB);
     gpio_set_dir(JOYSTICK_PB, GPIO_IN);
     gpio_pull_up(JOYSTICK_PB); 
+    gpio_set_irq_enabled_with_callback(JOYSTICK_PB, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
 
     gpio_init(Botao_A);
     gpio_set_dir(Botao_A, GPIO_IN);
     gpio_pull_up(Botao_A);
+    gpio_set_irq_enabled_with_callback(Botao_A, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
 
     // I2C Initialisation. Using it at 400Khz.
     i2c_init(I2C_PORT, 400 * 1000);
